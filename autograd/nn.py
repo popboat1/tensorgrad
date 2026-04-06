@@ -12,20 +12,36 @@ class Linear:
     
     def parameters(self):
         return [self.W, self.b]
+    
+    def __repr__(self):
+        nin, nout = self.W.data.shape
+        return f"Linear(in={nin}, out={nout})"
 
 
 class VectorizedMLP:
-    def __init__(self, nin, nouts):
+    def __init__(self, nin, nouts, activation = 'relu'):
         sz = [nin] + nouts
         self.layers = [Linear(sz[i], sz[i+1]) for i in range(len(nouts))]
+        self.activation = activation
         
     def __call__(self, x):
         for i, layer in enumerate(self.layers):
             x = layer(x)
             # Apply non-linearity to all hidden layers, leaving the output layer linear
             if i < len(self.layers) - 1:
-                x = x.tanh() 
+                if self.activation == 'relu':
+                    x = x.relu()
+                elif self.activation == 'tanh':
+                    x = x.tanh()
+                else:
+                    raise ValueError(f"Unsupported activation: {self.activation}")
+                
         return x
     
     def parameters(self):
         return [p for layer in self.layers for p in layer.parameters()]
+    
+    def __repr__(self):
+        # Joins all layer representations into one clean string
+        layers_str = ', '.join(str(layer) for layer in self.layers)
+        return f"VectorizedMLP(activation='{self.activation}') of [{layers_str}]"
