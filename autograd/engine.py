@@ -142,6 +142,31 @@ class Tensor:
         out._backward = _backward
         return out
     
+    def cross_entropy(self, target):
+        shifted_logits = self.data - np.max(self.data, axis=1, keepdims=True)
+        exp_logits = np.exp(shifted_logits)
+        probs = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
+        
+        batch_size = self.data.shape[0]
+        
+        # Pluck out the probability the network assigned to the correct class
+        correct_class_probs = probs[np.arange(batch_size), target]
+        log_probs = -np.log(correct_class_probs + 1e-15) # to prevent log(0)
+        data_loss = np.sum(log_probs) / batch_size
+        
+        out = Tensor(data_loss, (self,), 'cross_entropy')
+        
+        def _backward():
+            # The derivative of CrossEntropy + Softmax is simply (probs - one_hot_targets)
+            dlogits = probs.copy()
+            dlogits[np.arange(batch_size), target] -= 1.0
+            dlogits = dlogits / batch_size
+            
+            self.grad += dlogits * out.grad
+            
+        out._backward = _backward
+        return out
+    
     def backward(self):
         topo = []
         visited = set()
