@@ -18,16 +18,16 @@ class Tensor:
         out = Tensor(self.data + other.data, (self, other), '+')
         
         def _backward():
-            # Route gradients, reducing along axis 0 if NumPy broadcasting occurred
+            # Route gradients and handle dimensional broadcasting
             if self.data.shape == out.data.shape:
                 self.grad += out.grad
             else:
-                self.grad += np.sum(out.grad, axis=0, keepdims=True)
+                self.grad += np.sum(out.grad, axis=0, keepdims=True).reshape(self.data.shape)
                 
             if other.data.shape == out.data.shape:
                 other.grad += out.grad
             else:
-                other.grad += np.sum(out.grad, axis=0, keepdims=True)
+                other.grad += np.sum(out.grad, axis=0, keepdims=True).reshape(other.data.shape)
         
         out._backward = _backward
         return out
@@ -80,16 +80,15 @@ class Tensor:
         out = Tensor(self.data - other.data, (self, other), '-')
         
         def _backward():
-            # Route gradients and handle dimensional broadcasting
             if self.data.shape == out.data.shape:
                 self.grad += out.grad
             else:
-                self.grad += np.sum(out.grad, axis=0, keepdims=True)
+                self.grad += np.sum(out.grad, axis=0, keepdims=True).reshape(self.data.shape)
                 
             if other.data.shape == out.data.shape:
                 other.grad -= out.grad 
             else:
-                other.grad -= np.sum(out.grad, axis=0, keepdims=True)
+                other.grad -= np.sum(out.grad, axis=0, keepdims=True).reshape(other.data.shape)
             
         out._backward = _backward
         return out
@@ -103,13 +102,43 @@ class Tensor:
             if self.data.shape == out.data.shape:
                 self.grad += other.data * out.grad
             else:
-                self.grad += np.sum(other.data * out.grad, axis=0, keepdims=True)
+                self.grad += np.sum(other.data * out.grad, axis=0, keepdims=True).reshape(self.data.shape)
                 
             if other.data.shape == out.data.shape:
                 other.grad += self.data * out.grad
             else:
-                other.grad += np.sum(self.data * out.grad, axis=0, keepdims=True)
+                other.grad += np.sum(self.data * out.grad, axis=0, keepdims=True).reshape(other.data.shape)
             
+        out._backward = _backward
+        return out
+    
+    def __neg__(self):
+        return self * -1.0
+    
+    def __radd__(self, other):
+        return self + other
+    
+    def __rsub__(self, other):
+        return other + (-self)
+    
+    def __rmul__(self, other):
+        return self * other
+    
+    def __truediv__(self, other):
+        other = other if isinstance(other, Tensor) else Tensor(other)
+        out = Tensor(self.data / other.data, (self, other), '/')
+        
+        def _backward():
+            if self.data.shape == out.data.shape:
+                self.grad += (1.0 / other.data) * out.grad
+            else:
+                self.grad += np.sum((1.0 / other.data) * out.grad, axis=0, keepdims=True).reshape(self.data.shape)
+                
+            if other.data.shape == out.data.shape:
+                other.grad += (-self.data / (other.data ** 2)) * out.grad
+            else:
+                other.grad += np.sum((-self.data / (other.data ** 2)) * out.grad, axis=0, keepdims=True).reshape(other.data.shape)
+                
         out._backward = _backward
         return out
     
