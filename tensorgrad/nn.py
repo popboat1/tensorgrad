@@ -1,4 +1,4 @@
-from autograd.engine import Tensor
+from engine import Tensor
 import numpy as np
 
 class Linear:
